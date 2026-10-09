@@ -1,0 +1,15 @@
+
+# 備份目錄
+*.bak/
+.bak/
+
+# 一般
+.DS_Store
+__pycache__/
+*.pyc
+.research-budget.json
+reports/
+
+# 暫存產物（competitor 模式輸出），不入版
+/evidence-package.json
+*.lock

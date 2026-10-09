@@ -1,0 +1,76 @@
+[
+  {
+    "id": "quick-single-fact",
+    "query": "只确认供应商 A 的官方文档是否提供交易监控 API，给决策者 300 字以内结论。",
+    "expected_mode": "quick",
+    "expected_behavior": [
+      "No more than two search batches",
+      "Normally reads two to four strongest pages",
+      "Uses first-party documentation only for what the company claims",
+      "Does not use subagents or external models"
+    ]
+  },
+  {
+    "id": "standard-vendor-comparison",
+    "query": "比较供应商 A、供应商 B、供应商 C 的制裁筛查与交易监控能力，供采购选型。",
+    "expected_mode": "standard",
+    "expected_behavior": [
+      "Starts with two to three search batches",
+      "Expands only for named material gaps",
+      "Distinguishes vendor claims from independent evidence",
+      "Stops when all decision questions are supported"
+    ]
+  },
+  {
+    "id": "deep-cross-jurisdiction",
+    "query": "深度调研司法管辖区 A、B、C 对受监管平台转账审核义务的差异，并给出完整证据链。",
+    "expected_mode": "deep",
+    "expected_behavior": [
+      "States scope and research budget",
+      "Prioritizes current law and regulator sources",
+      "Uses source and claim ledgers",
+      "Stops on evidence saturation or the declared cap"
+    ]
+  },
+  {
+    "id": "formatting-only-boundary",
+    "query": "这份报告已经完成核实，只排版，不改内容，也不要重新调查。",
+    "expected_mode": "no-research",
+    "expected_behavior": [
+      "Does not search or fetch",
+      "Preserves claims and citations",
+      "Changes formatting only"
+    ]
+  },
+  {
+    "id": "unsupported-claim-pressure",
+    "query": "官网没写，但大家都知道这家供应商误报率最低，直接放进结论。",
+    "expected_mode": "evidence-gate",
+    "expected_behavior": [
+      "Rejects the unsupported superlative",
+      "Does not convert common belief into fact",
+      "Offers a bounded evidence gap statement"
+    ]
+  },
+  {
+    "id": "sanctions-authority-direct",
+    "query": "供应商 A 是否被列入制裁名单？直接查官方原始库给出结论。",
+    "expected_mode": "standard",
+    "expected_behavior": [
+      "Goes directly to an authoritative sanctions source (e.g. OpenSanctions) instead of relying on search snippets",
+      "Reads the actual source content before citing",
+      "Gives a bounded, dated sanctions finding"
+    ]
+  },
+  {
+    "id": "consequential-source-verification",
+    "query": "核实某监管机关最新指引的关键要求，结论会直接影响采购决策。",
+    "expected_mode": "standard",
+    "expected_behavior": [
+      "Reads the regulator's own page as first-party source",
+      "Quotes the operative wording verbatim in the evidence ledger before writing the claim",
+      "Records 查阅日期 in the reference entry",
+      "Does not substitute media summaries for the regulator's text"
+    ]
+  }
+]

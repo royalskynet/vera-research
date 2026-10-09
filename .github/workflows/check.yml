@@ -1,0 +1,26 @@
+name: check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: check-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pytest
+      - run: bash .githooks/pre-push
+      - run: bash scripts/check_report.sh --selftest
+      - run: python scripts/budget.py --selftest
+      - run: python -m pytest tests/ --collect-only -q
+      - run: python -m pytest tests/ -q

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# 推送前自檢：
+# 1) 追蹤檔掃工作流字面（禁詞 SSOT 與本 hook 除外），命中即擋
+# 2) check_report.sh --selftest 確認禁詞清單擷取正常
+set -u
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+lit="內部|内部|skills-manager"
+
+# ponytail: git grep 一次掃完全部追蹤檔，取代逐檔 fork grep
+if bad=$(git -C "$root" grep -nE "$lit" -- . ':!references/forbidden-words.md' ':!.githooks/pre-push'); then
+  echo "PRE-PUSH BLOCKED: tracked file contains forbidden literal(s):" >&2
+  echo "$bad" >&2
+  exit 1
+fi
+
+if ! bash "$root/scripts/check_report.sh" --selftest; then
+  echo "PRE-PUSH BLOCKED: forbidden-word selftest failed" >&2
+  exit 1
+fi
+
+exit 0
