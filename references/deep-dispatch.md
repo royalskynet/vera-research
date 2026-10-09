@@ -57,7 +57,7 @@
 |---|---|---|
 | 0 | 成功 | 照常 `fill`／`nonew` |
 | 2 | 抓不到／搜尋 0 筆 | 標 `[⚠️ 頁面不可達]` 不引用，**不重試** |
-| 3 | 工具不可用（camofox 服務沒跑、**瀏覽器啟不起來**／`mcporter` 失聯） | **停手回報**，不得自行 `launchctl` 載入，改走另一通道或結束該輪。camofox `/health` 回 ok 不等於瀏覽器可用（懶啟動）；stderr 出現 `camofox browser cannot launch` 是工具故障不是頁面問題，同批其餘 URL 已印 `SKIP`，**不換 URL 重試**，主 session 依 fixindex 9694 修安裝位置 |
+| 3 | 工具不可用（camofox 服務沒跑、**瀏覽器啟不起來**／`mcporter` 失聯） | **停手回報**，不得自行 `launchctl` 載入，改走另一通道或結束該輪。camofox `/health` 回 ok 不等於瀏覽器可用（懶啟動）；stderr 出現 `camofox browser cannot launch` 是工具故障不是頁面問題，同批其餘 URL 已印 `SKIP`，**不換 URL 重試**，主 session 修安裝位置 |
 | 4 | 預算閘門 | 立刻 `budget.py close <格>` |
 | 5 | 擋頁／短內文／封鎖狀態碼 | 升級 camofox，同 URL 只升一次 |
 

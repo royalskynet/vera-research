@@ -63,7 +63,7 @@ LANES: dict[str, Lane] = {
     ),
     "deep-research": Lane(
         fallback=(
-            "Use this project's native Ether scope, coverage, evidence, "
+            "Use this project's native Vera scope, coverage, evidence, "
             "contradiction, critique, delta-query, and validation pipeline."
         ),
         probe=lambda: ("ok", "native (always ok)"),

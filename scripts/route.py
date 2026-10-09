@@ -483,7 +483,7 @@ def build_plan(profile: TaskProfile, available: set[str] | None = None) -> dict:
         plan.add("agent-reach", "official-and-web-corroboration")
 
     if intensity != "quick":
-        plan.add("deep-research", "native-ether-orchestration")
+        plan.add("deep-research", "native-vera-orchestration")
 
     for capability in profile.explicit_capabilities:
         if capability not in CAPABILITY_ORDER:

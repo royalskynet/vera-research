@@ -19,7 +19,7 @@
 1. Router first：先判任務，再取資料。
 2. Conservative escalation：分類不確定只升不降。
 3. Source lanes：五種能力保持單一責任，不互相冒充。
-4. Native deep core：Ether 作編排與品質核心，外部能力作 evidence provider。
+4. Native deep core：Vera 作編排與品質核心，外部能力作 evidence provider。
 5. Four ledgers：source、evidence、claim、run manifest。
 6. Evidence-driven outline：證據可改綱要，不能靠想像擴題。
 7. Cluster independence：按共同上游分群，而非 URL 計數。

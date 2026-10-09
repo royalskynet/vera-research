@@ -14,6 +14,7 @@ ponytail: 只數 reach.py 的呼叫；agent-reach CLI 直接打 Exa 不會被算
 """
 import os
 import shlex
+import shutil
 import subprocess
 import sys
 import time
