@@ -209,6 +209,15 @@ MODE_PRESETS = {
     "competitor-single": (3, 5, 6, 120),
 }
 
+# effort 檔位（SSOT：SKILL.md「Effort 檔位」）。full＝V1 原流程；medium 直出重點版、
+# 免逐題登記、不開深入輪；low 只跑主體／牌照／負面／制裁，無第二輪。
+# 依 2026-10-19 一次 vendor-dd 實測：full 68 分鐘，其中帳本記帳回合約 11 分鐘。
+# ponytail: medium／low 的額度只取一場量測，多跑幾場再校正。
+EFFORT_PRESETS = {  # effort: (search_cap, fetch_cap, max_gaps_cap, minutes)
+    "medium": (3, 4, 4, 45),
+    "low": (2, 2, 0, 15),
+}
+
 
 def do_init(args, path):
     platforms = [s for s in args.platforms.split(",") if s]
@@ -225,6 +234,11 @@ def do_init(args, path):
         print(f"[auto] 單平台 {n_cells} cells → 套用 competitor-single 模式")
     
     p_search, p_fetch, p_gaps, p_minutes = MODE_PRESETS[mode]
+    effort = args.effort or "full"
+    if effort in EFFORT_PRESETS:
+        e_search, e_fetch, e_gaps, e_minutes = EFFORT_PRESETS[effort]
+        p_search, p_fetch = min(p_search, e_search), min(p_fetch, e_fetch)
+        p_gaps, p_minutes = min(p_gaps, e_gaps), e_minutes
     fetch_pc = args.fetch_per_cell if args.fetch_per_cell is not None else p_fetch
     search_pc = args.search_per_cell if args.search_per_cell is not None else p_search
     max_gaps = args.max_gaps if args.max_gaps is not None else p_gaps
@@ -234,9 +248,12 @@ def do_init(args, path):
         search_pc=search_pc, max_gaps=max_gaps, minutes=minutes, mode=mode,
     )
     led["mode"] = mode
+    led["effort"] = effort
+    if effort != "full":
+        led["require_questions"] = False  # medium／low 免逐題 ask／answer
     save(path, led)
     n = len(platforms) * len(dims)
-    print(f"INIT mode={mode} cells={n} fetch_per_cell={led['fetch_per_cell']} "
+    print(f"INIT mode={mode} effort={effort} cells={n} fetch_per_cell={led['fetch_per_cell']} "
           f"search_per_cell={led['search_per_cell']} "
           f"total_fetch_cap={led['total_fetch_cap']} "
           f"total_search_cap={led['total_search_cap']} minutes={led['minutes']}")
@@ -675,6 +692,9 @@ def do_phase(args, path):
         print(f"PHASE round2 gaps={len(gaps)}")
     elif args.name == "deep":
         # 只開一次：agent-reach 兩輪後仍有缺口才進；不是無限加碼的後門
+        if data.get("effort", "full") != "full":
+            print(f"ERROR deep round is full-effort only (effort={data['effort']})")
+            return 2
         if data.get("deep"):
             print("ERROR deep round already run")
             return 2
@@ -1212,7 +1232,29 @@ def selftest() -> int:
         if _capture(["phase", "final"])[0] != 0:
             return _fail(26)
 
-    print("SELFTEST PASS: budget ledger (26 cases)")
+    # 27) effort：medium 降額度且免題目閘、不准深入輪；low 無缺口輪；預設 full 不變
+    main_core(["init", "--mode", "vendor-dd", "--effort", "medium", "--platforms", "X", "--dims", "D1,D2"])
+    led = load(path)
+    if not (led["effort"] == "medium" and led["fetch_per_cell"] == 4 and led["search_per_cell"] == 3
+            and led["max_gaps"] == 4 and led["minutes"] == 45 and not led["require_questions"]):
+        return _fail(27)
+    if _capture(["spend", "fetch", "X/D1"])[0] != 0:
+        return _fail(27)
+    _capture(["phase", "round2", "--gaps", "X/D2"])
+    if _capture(["phase", "deep", "--gaps", "X/D2"])[0] != 2:
+        return _fail(27)
+    main_core(["init", "--mode", "vendor-dd", "--effort", "low", "--platforms", "X", "--dims", "D1"])
+    led = load(path)
+    if not (led["max_gaps"] == 0 and led["minutes"] == 15 and led["fetch_per_cell"] == 2):
+        return _fail(27)
+    if _capture(["phase", "round2", "--gaps", "X/D1"])[0] != 2:
+        return _fail(27)
+    main_core(["init", "--mode", "vendor-dd", "--platforms", "X", "--dims", "D1"])
+    led = load(path)
+    if not (led["effort"] == "full" and led["fetch_per_cell"] == 6 and led["require_questions"]):
+        return _fail(27)
+
+    print("SELFTEST PASS: budget ledger (27 cases)")
     return 0
 
 
@@ -1308,6 +1350,7 @@ def build_parser() -> argparse.ArgumentParser:
     i.add_argument("--platforms", required=True)
     i.add_argument("--dims", required=True)
     i.add_argument("--mode", choices=tuple(MODE_PRESETS), default=None)
+    i.add_argument("--effort", choices=("full", "medium", "low"), default=None)
     i.add_argument("--fetch-per-cell", type=int, default=None)
     i.add_argument("--search-per-cell", type=int, default=None)
     i.add_argument("--max-gaps", type=int, default=None)

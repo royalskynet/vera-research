@@ -23,3 +23,11 @@ def test_bold_answer_first_passes_and_nested_bullets_ignored():
 def test_missing_one_line_answer_warns():
     _, warnings = vr.check_conclusions("主要结论：\n\n- **可以。** [1]\n")
     assert warnings == ["missing 一句话结论 line"]
+
+
+def test_dimension_sections_must_follow_d_numbers():
+    # 曾按「維度權重」把 D2 排在 D1 前，讀者對不上編號；章節與矩陣都要照 D1..D9
+    text = "### D2 牌照\n\n### D1 主体\n\n| D3 合规 | 中 |\n| D1 主体 | 低 |\n"
+    errors = vr.check_dim_order(text)
+    assert len(errors) == 2
+    assert vr.check_dim_order("### D1 主体\n\n### D2 牌照\n\n| D1 | 低 |\n| D2 | 中 |\n") == []

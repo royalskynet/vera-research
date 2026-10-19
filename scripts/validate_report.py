@@ -77,6 +77,28 @@ def check_conclusions(text: str) -> tuple[list[str], list[str]]:
     return errors, warnings
 
 
+DIM_HEAD = re.compile(r"^###\s+D(\d+)\b")
+DIM_ROW = re.compile(r"^\|\s*D(\d+)\b")
+
+
+def check_dim_order(text: str) -> list[str]:
+    """维度小节与表格维度列须按 D 编号升序：按风险或权重重排会让读者对不上编号。"""
+    errors: list[str] = []
+    heads = [int(m.group(1)) for ln in text.splitlines() if (m := DIM_HEAD.match(ln))]
+    if heads != sorted(heads):
+        errors.append(f"dimension sections out of order: {' '.join(f'D{n}' for n in heads)} (use D1..D9)")
+    table: list[int] = []
+    for ln in text.splitlines() + [""]:
+        if ln.startswith("|"):
+            if m := DIM_ROW.match(ln):
+                table.append(int(m.group(1)))
+            continue
+        if table != sorted(table):
+            errors.append(f"dimension table rows out of order: {' '.join(f'D{n}' for n in table)} (use D1..D9)")
+        table = []
+    return errors
+
+
 def analyze(
     text: str,
 ) -> tuple[list[str], list[str], set[int], dict[int, str], str]:
@@ -86,6 +108,7 @@ def analyze(
     references maps number -> full reference line.
     """
     errors, warnings = check_conclusions(text)
+    errors.extend(check_dim_order(text))
 
     for marker in UNRESOLVED_MARKERS:
         if marker in text:

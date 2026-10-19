@@ -1,12 +1,12 @@
 # vera-research — `/research` router + deep-research 引擎
 
-**English**：[README.md](README.md)
+**简体中文**：[README.md](README.md)｜**繁體中文**：[README.zh-TW.md](README.zh-TW.md)｜**English**：[README.en.md](README.en.md)
 
 `vera-research` 是名為 `research` 的 [Claude Code](https://docs.claude.com/en/docs/claude-code/overview) skill。v6.0.0 把 `/research` 升級為第一層保守判斷器：依任務性質路由 `agent-reach`、`last30days`、`qmd`、`user-research`，並用原 Vera 三輪流程作原生 deep core。只有明確窄查詢走 quick；模糊任務至少 verified，低信心升一級；競品預設 decision assurance，第三方廠商背調／盡調預設 audit assurance。
 
 原本加密交易所風控研究保留為 domain profile：`competitor`、`vendor-dd`、`academic`。命中時仍用覆蓋矩陣、預算停損、雙通道補洞、反方稽核與**簡體中文**正式報告；一般研究不套用交易所名單或風控格式。
 
-目前宣告版本：`6.7.0`（見 `SKILL.md` 的 `metadata.version`）。
+目前宣告版本：`6.8.0`（見 `SKILL.md` 的 `metadata.version`）。
 
 ## 快速安裝
 
@@ -45,6 +45,22 @@ scripts/run_state.py checkpoint --run-dir ./research-run --phase scope-plan-cove
 scripts/run_state.py status --run-dir ./research-run
 ```
 
+## Effort 檔位
+
+`scripts/budget.py init --effort full|medium|low` 控制流程長度與交付物。證據規則三檔相同：牌照一律對 S1 監管名冊、每條主張掛 `[N]`、先抓原文再寫、禁詞與簡體中文檢查。未指定時用 `medium`。
+
+| 檔位 | 交付物 | 目標時長 |
+|---|---|---|
+| `full` | 九章完整版（原三輪流程全跑） | 60–80 分鐘 |
+| `medium`（預設） | 重點版，含信任評分 | 35–40 分鐘 |
+| `low` | 速覽版，不評分 | 10–15 分鐘 |
+
+- `medium`：免逐題 `ask`／`answer` 記帳；缺口補查只一輪（≤4 格），不開深入輪；直接寫重點版；第三輪反方稽核照跑，放背景執行。
+- `low`：只查主體、牌照、負面紀錄、制裁名單與產品範圍；無缺口補查、無反方稽核；15 分鐘牆鐘到即用已有事實成稿，格式見 `references/report-format-vendor-dd-quick.md`。
+- 三檔共用：頁面正文只落檔，事實即時追加到 `work/facts.md`，避免 context 壓縮後重抽；同一名冊最多試 2 次；制裁名單 CSV 比對併入第一輪。
+
+時長依據一次 vendor-dd 實測：`full` 跑 68 分鐘，其中 context 壓縮後重建事實約 7 分鐘、逐題記帳回合約 11 分鐘。`medium`／`low` 的時長為推估，尚未實測。
+
 ## 原生 Vera 三輪核心
 
 1. **第一輪** 選模式 → `scripts/budget.py init --mode …` 建「平台×維度」覆蓋矩陣 → 依 `questions-<mode>.md` 的必答問題與三視角補充題生成查詢 → WebSearch，回空或不足即走 agent-reach（`scripts/reach.py search` 走 Exa，失敗時另有一輪性的 ddgs 備援；WebFetch 失敗走 `reach.py read` 走 Jina）→ 每格達 `evidence-standards.md` 門檻才 `FILLED` → `budget.py status` 印 `NEXT: draft` 即停止蒐集寫初稿。每次搜尋／抓取都先記帳；預算用盡＝這一輪停手，定額加碼規則見 `references/deep-dispatch.md`。
@@ -74,7 +90,8 @@ scripts/run_state.py status --run-dir ./research-run
 | `references/deep-mode.md` | 深度編排：起點資產盤點、工作包（WP）拆分、工作稿、綜合主報告、定稿門檻清單 |
 | `references/deep-dispatch.md` | 把第一、二輪蒐集整包交給沙箱外執行人的派工說明 |
 | `references/report-format-vendor-dd.md` | vendor-dd 八章格式（含調研範圍與方法、逐維度宣稱／核實／評述／風險等級） |
-| `references/report-format-vendor-dd-brief.md` | vendor-dd 重點版（評分總覽、主體／合規／可靠性／能力四表、調用者前提逐條核實、子維度依據），由完整版重排不重查 |
+| `references/report-format-vendor-dd-brief.md` | vendor-dd 重點版（評分總覽、主體／合規／可靠性／能力四表、調用者前提逐條核實、子維度依據），`medium` 檔位直接產出；`full` 檔位可由完整版重排 |
+| `references/report-format-vendor-dd-quick.md` | vendor-dd 速覽版（`low` 檔位）：主體與牌照、負面與制裁、產品範圍、覆蓋範圍 |
 | `references/vendor-trust-score-rubric.md` | vendor-dd 信任分數（可選）：六子維度權重（20/20/20/10/20/10）、三桶（合規 40／能力 30／可靠性 30）、A+–D 五級、各子項評分區間、跨行業調整 |
 | `references/round2-merge.md` | 第二輪兩通道分派表、缺口上限、融合與充實規則、checklist |
 | `references/round3-devils-advocate.md` | 反方子代理 prompt 模板、旗標、證據包 schema、七道閘門、裁決規則 |
@@ -149,6 +166,7 @@ pre-push hook 會掃描追蹤檔的禁詞字面並跑禁詞自檢；GitHub Actio
 
 ## 版本
 
+- 6.7.0 → 6.8.0：新增 effort 檔位 `full`／`medium`／`low`（`budget.py init --effort`），`medium` 為預設並直出重點版；新增速覽版格式；`devils_advocate.sh` 修 `set -u` 下變數名後接全形標點的 unbound 錯誤；平行抓取測試改用 Barrier 判定，不再依賴牆鐘。
 - 5.1.1 → 6.0.0：新增 `/research` 第一層保守 router；自然語言推斷與低信心升級；合併 Agent-Reach、last30days、deep-research、user-research、qmd 與 ARIS 的適用方法；強度／assurance 兩軸；deep/large checkpoint/resume 與 artifact STALE；原 Vera 成為 native deep core。
 - 4.1.0 → 5.0.0 重構：第二輪雙通道併行、新增第三輪反方稽核、禁詞 SSOT 獨立檔案、移除 7 個舊版子技能、移除 profile 設定檔（對標名單與品質規則內建於 SKILL.md）。
 - 5.0.0 → 5.1.0：調研模式（competitor／vendor-dd／academic）、證據分級與深度門檻、必答問題庫、主管機關目錄 SSOT（併入 PR #1）、第一輪 agent-reach（reach.py）、覆蓋矩陣與預算停損（budget.py）、清除舊的身分設定用語。

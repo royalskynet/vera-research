@@ -33,9 +33,14 @@ class ReadManyTest(unittest.TestCase):
     def test_order_parallel_and_budget(self) -> None:
         fetched: list[str] = []
         spend_threads: set[str] = set()
+        # 平行用 Barrier 判定，不用牆鐘：macOS 背景行程的計時器合併讓 sleep(0.2) 實測睡到 0.35s，
+        # 牆鐘門檻會偶發失敗。4 個被放行的抓取必須同時在場，依序執行會在 timeout 後 BrokenBarrierError。
+        barrier = threading.Barrier(4, timeout=2)
 
         def fake_fetch(url, save_dir, seq, grep):
-            time.sleep(0.2 if url.endswith("0") else 0.05)  # 第一個最慢，順序仍要對
+            barrier.wait()
+            if url.endswith("0"):
+                time.sleep(0.05)  # 第一個最晚完成，順序仍要對
             fetched.append(url)
             return 0, [f"{url}\tOK"]
 
@@ -46,18 +51,15 @@ class ReadManyTest(unittest.TestCase):
         calls: list[int] = []
         urls = [f"https://h/{i}" for i in range(5)]
         buf = io.StringIO()
-        t0 = time.monotonic()
         with mock.patch.object(REACH, "_fetch", side_effect=fake_fetch), \
                 mock.patch.object(REACH, "spend", side_effect=fake_spend), redirect_stdout(buf):
             rc = REACH.read_many(urls, "c")
-        elapsed = time.monotonic() - t0
         lines = buf.getvalue().splitlines()
         self.assertEqual([ln.split("\t")[0] for ln in lines], urls)
         self.assertIn("BUDGET", lines[2])
         self.assertNotIn("https://h/2", fetched)
         self.assertEqual(rc, 4)
         self.assertEqual(spend_threads, {"MainThread"})
-        self.assertLess(elapsed, 0.35)  # 依序要 0.35s 以上
 
 
 class CheckUrlsTest(unittest.TestCase):

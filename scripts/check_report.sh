@@ -17,22 +17,27 @@ extract_forbidden() {
 
 # 檢索軌跡閘門：否定句（未檢索到／未能確認／未命中…）是主張，不是免責。
 # 沒有可出示的檢索軌跡，第三方無從複驗，等於用措辭冒充結論。
+# 軌跡章節寫在同目錄的 <報告>-范围与问题.md（讀者要的是結論，查詢詞與走訪連結是過程），
+# 報告自身留著也接受——閘門只問「出示得出來嗎」，兩個檔案任一有就放行。
 # ponytail: 只驗「有否定句就必須有附軌跡章節且含 URL」，不做逐句對應；要逐句綁定再說。
 NEG_RE='未檢索到|未检索到|未能確認|未能确认|未命中|未查到|未覆蓋|未覆盖|未見登錄|未见登录|無公開|无公开|未找到'
 
 trail_gate() {
-  local report="$1" negs
+  local report="$1" negs f
   negs=$(grep -nE "$NEG_RE" "$report" 2>/dev/null || true)
   if [ -z "$negs" ]; then
     echo "OK: no negative claim"
     return 0
   fi
   # awk 而非 sed：BSD sed 的 BRE 不支援 \| 交替，抓不到章節就會誤判成無軌跡
-  if awk '/^#+.*(檢索軌跡|检索轨迹)/{f=1} f' "$report" | grep -q 'http'; then
-    echo "OK: $(printf '%s\n' "$negs" | grep -c . | tr -d ' ') negative claim(s) backed by a 檢索軌跡 section"
-    return 0
-  fi
-  echo "FAIL: 報告有否定句但缺「檢索軌跡」章節（或該章節無 URL）——否定主張須附查詢詞與走訪連結"
+  for f in "${report%.md}-范围与问题.md" "$report"; do
+    [ -f "$f" ] || continue
+    if awk '/^#+.*(檢索軌跡|检索轨迹)/{f=1} f' "$f" | grep -q 'http'; then
+      echo "OK: $(printf '%s\n' "$negs" | grep -c . | tr -d ' ') negative claim(s) backed by a 檢索軌跡 section in $(basename "$f")"
+      return 0
+    fi
+  done
+  echo "FAIL: 報告有否定句但缺「檢索軌跡」章節（或該章節無 URL）——否定主張須附查詢詞與走訪連結，寫在 $(basename "${report%.md}-范围与问题.md")"
   printf '%s\n' "$negs" | head -10
   return 1
 }
@@ -61,7 +66,9 @@ selftest() {
   # 否則「照格式寫章名」與「過禁詞閘門」在定義上不可能同時成立。
   local fmt heads hitlines=""
   for fmt in "$SCRIPT_DIR/../references/report-format.md" \
-             "$SCRIPT_DIR/../references/report-format-vendor-dd.md"; do
+             "$SCRIPT_DIR/../references/report-format-vendor-dd.md" \
+             "$SCRIPT_DIR/../references/report-format-vendor-dd-brief.md" \
+             "$SCRIPT_DIR/../references/report-format-vendor-dd-quick.md"; do
     [ -f "$fmt" ] || continue
     heads=$(grep -E '^#{2,3} ' "$fmt" || true)
     [ -n "$heads" ] || continue
@@ -88,6 +95,13 @@ selftest() {
   if ! trail_gate "$tmpr" >/dev/null 2>&1; then
     echo "SELFTEST FAIL: 補上檢索軌跡後仍未放行" >&2; rm -rf "$tmpd"; return 1
   fi
+  # 軌跡搬到 sidecar（-范围与问题.md）後必須照樣放行，否則「軌跡不進報告」的格式規定無法遵守
+  printf '# t\n\n本次已查阅的公开来源未能确认该事项。\n' > "$tmpr"
+  printf '# scope\n\n## 附录：检索轨迹\n\n| x | https://example.com | 0 |\n' > "$tmpd/r-范围与问题.md"
+  if ! trail_gate "$tmpr" >/dev/null 2>&1; then
+    echo "SELFTEST FAIL: sidecar 內的檢索軌跡未被認可" >&2; rm -rf "$tmpd"; return 1
+  fi
+  rm -f "$tmpd/r-范围与问题.md"
   printf '# t2\n\n全部主張皆有來源。\n' > "$tmpr"
   if ! trail_gate "$tmpr" >/dev/null 2>&1; then
     echo "SELFTEST FAIL: 無否定句的報告被誤擋" >&2; rm -rf "$tmpd"; return 1
@@ -152,10 +166,21 @@ bad=0
 while IFS= read -r pat; do
   [ -n "$pat" ] || continue
   hits=$(grep -nE "$pat" "$REPORT" 2>/dev/null || true)
+  # 例外（forbidden-words.md「例外」節）：被引來源標題／URL 原文本身含該詞時，該行不算命中。
+  # 判準：命中行剔除所有 http(s) URL 後再驗一次，仍命中才算違規。
+  # 用 perl 而非 sed：BSD sed 的 bracket 內 \t 不展開且字元類易吃掉表格的 |。
   if [ -n "$hits" ]; then
-    # 每行命中只印 pattern＋第一個行號，避免同 pattern 重複刷屏
-    echo "FAIL: line $(printf '%s' "$hits" | head -1 | cut -d: -f1) pattern [$pat]"
-    bad=1
+    real=""
+    while IFS= read -r h; do
+      [ -n "$h" ] || continue
+      body="${h#*:}"
+      stripped=$(printf '%s' "$body" | perl -pe 's{https?://\S+}{}g')
+      printf '%s' "$stripped" | grep -qE "$pat" && real="$h"
+    done <<<"$hits"
+    if [ -n "$real" ]; then
+      echo "FAIL: line $(printf '%s' "$real" | cut -d: -f1) pattern [$pat]"
+      bad=1
+    fi
   fi
 done < <(extract_forbidden)
 

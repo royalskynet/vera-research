@@ -8,7 +8,7 @@ description: |
   `/research` requests, web/local/social/human research, verification, comparisons, due diligence,
   literature reviews, and formal evidence-backed reports.
 metadata:
-  version: "6.7.0"
+  version: "6.8.0"
   router_contract: "2"
 allowed-tools:
   - WebSearch
@@ -57,10 +57,13 @@ allowed-tools:
 | 任務 | 能力 |
 |---|---|
 | 指定 URL、官方網站、GitHub、公開平台 | `agent-reach` |
+| 要登入態、動態渲染、反爬平台、需點擊互動，或靜態抓取同一目標失敗 2 次 | `web-access`（CDP 接本機瀏覽器） |
 | 最近 N 天口碑、趨勢、社群互動 | `last30days` |
 | 私有 Markdown、筆記、知識庫 | `qmd` |
 | 訪談、問卷、逐字稿、真人研究 | `user-research` |
 | verified／deep／large | 原生 `deep-research`＋相關來源 lane |
+
+**取用層並用**：`verified` 起，網路取用至少並用兩條：WebSearch／agent-reach Exa（找來源）、agent-reach 平台後端、`web-access` CDP；WebFetch 只做已知 URL 的定向抽取，不算一條。正文先走 `r.jina.ai/<url>` 省 token；靜態層拿不到的一手來源升 `web-access`，不在同一方式上重試。
 
 `deep-research` 不是另一個必要安裝：本專案已把上游深研的 scope→plan→retrieve→triangulate→outline-refine→synthesize→critique→package，與原 Vera 覆蓋矩陣、預算停損、雙通道補洞、反方稽核、報告驗證合成原生核心。上游審查與採捨見 `${CLAUDE_SKILL_DIR}/references/upstream-review.md`。
 
@@ -124,7 +127,7 @@ allowed-tools:
 **產出品質鐵律**（等同考核維度，但只作用於產出本身，不涉及任何身分資訊）：
 
 - **報告正文一律簡體中文**（公司名、產品名、技術術語保留原文）；使用者明確指定其他語言時以指定為準。`check_report.sh` 會機械檢查正文是否誤用繁體。
-- 用語委婉、措辭溫和（如「或可考慮」「建議參考」），但**結論必須有明確傾向**：哪家做法較優、差距在哪、建議採用哪種；禁止「留給領導定奪」「可視情況決定」「建議進一步評估」等不承載資訊的空話結語。
+- **只就證據陳述，不做防衛性措辭**：措辭平實，不加「或可」「或許」等軟化詞，也不用命令語氣；**結論必須有明確傾向**：哪家做法較優、差距在哪。背景調研不是審批，不寫「推進／暫緩／附條件推進」；vendor-dd 結論只用「較為建議／較不建議」二擇一，由第八章信任評分決定（規則見 `references/report-format-vendor-dd.md` 第七章）。主軸是實體強不強、穩不穩；負面事實按嚴重度權衡，一般罰款或上訴中處分不單獨判死；「未公開」不是負面事實。禁止「留給領導定奪」「可視情況決定」「建議進一步評估」等不承載資訊的空話結語。
 - **只回答調研本身能給出的答案，不給決策方下行動指示**：報告是呈報組織領導的學術調研，職責是「查到什麼、沒查到什麼、意味著什麼」。禁止出現「或可要求對方提供」「或可在合約中約定」「建議我方去核實／索取」等把行動責任轉嫁給決策方、或指示決策方如何決定的表述——尤其是那些只有服務商或監管機關才持有的材料（執照原文件、執法處置文件、具名贊助行與託管方），研究員拿不到，不能寫成「建議去要求」。這類未核實事項一律以中性事實落筆（「本次未能核實／未取得／未披露」），留給決策方自行判斷下一步，不替決策方決定。
 - 內容一律經核實並附資料來源 `[N]`。
 - 禁止沒有根據的推論、猜測。
@@ -140,20 +143,54 @@ allowed-tools:
 | 模式 | 適用 | 矩陣 | 必答問題與一手來源 | 報告格式 |
 |---|---|---|---|---|
 | `competitor` | 交易所競品／同業機制比較（預設） | 平台 × 維度（維度見「標準風控調研維度」） | `references/questions-competitor.md` | `references/report-format.md`（八章） |
-| `vendor-dd` | 第三方服務商／合作方盡職調查 | 主體 × D1–D9 | `references/questions-vendor-dd.md`＋名冊 `references/registry-directories.md` | `references/report-format-vendor-dd.md`（八章） |
+| `vendor-dd` | 第三方服務商／合作方盡職調查 | 主體 × D1–D9 | `references/questions-vendor-dd.md`＋名冊 `references/registry-directories.md` | `references/report-format-vendor-dd.md`（九章，第八章為信任評分） |
 | `academic` | 其他專業研究 | 主題 × 子題（自定 3–8 個） | 依 questions-competitor.md 的寫法自擬必答問題 | `references/report-format.md`（章名可依題調整） |
 
-**必跑與可選**：vendor-dd 的第一輪、第二輪（有缺口時）、整合、**第三輪反方稽核**一律必跑；**供應商評分是可選疊加**，使用者沒要評分就只交完整版，不主動打分。
+**必跑與可選**（`full` 檔位；`medium`／`low` 見下方「Effort 檔位」）：vendor-dd 的第一輪、第二輪（有缺口時）、整合、**第三輪反方稽核**一律必跑；**供應商信任評分固定放在完整版最後一章**（`references/vendor-trust-score-rubric.md`，六子維度多向度評分），不需使用者另外要求。
 
 **多主體一律隔離**：一次指令點名兩家以上服務商時，每家各開一套獨立工作目錄、`RESEARCH_BUDGET` 帳本（`init --platforms <單一主體>`）、報告與第三輪稽核，各自完整跑完三輪。報告之間不互相引用、不合併、不寫橫向比較；同一來源被兩家都用到時各自編號。使用者明說要「比較／對標」才改走單一矩陣。
 
-**重點版／評分版（可選，疊加在 `vendor-dd` 完整版之後）**：完整版定稿後使用者要「精簡／重點／評分版」→ 依 **`${CLAUDE_SKILL_DIR}/references/report-format-vendor-dd-brief.md`** 由同一批證據重排，一個事實只落一張表，不重查、不新增主張；檢查不帶 `--mode`。
+**重點版（`medium` 檔位直接產出；`full` 檔位可選疊加在完整版之後）**：完整版定稿後使用者要「精簡／重點版」→ 依 **`${CLAUDE_SKILL_DIR}/references/report-format-vendor-dd-brief.md`** 由同一批證據重排，一個事實只落一張表，不重查、不新增主張；檢查不帶 `--mode`。
 
 判斷規則：指令提到「盡調／盡職調查／合作方／供應商／服務商」→ `vendor-dd`；提到交易所名稱或「競品／對標／同業」→ `competitor`；其餘 → `academic`。模式決定 `budget.py init --mode` 的預算預設與 `check_report.sh --mode` 的深度門檻。
 
 **深度編排（疊加在任一模式上）**：使用者要求「深度／詳盡／完整」、或矩陣超過 24 格、或題目跨多個法域／多個子題時，改用 **`${CLAUDE_SKILL_DIR}/references/deep-mode.md`** 的工作包（WP）編排：先盤點既有資產建「已覆蓋事實清單」，把題目拆成 3–7 個工作包，每個工作包產一份工作稿（不進報告），最後由工作稿綜合成主報告。
 
 ---
+
+## Effort 檔位（先定檔位，再跑流程）
+
+檔位控制流程長度與交付物，不改證據規則：S1 名冊對照、每條主張掛 `[N]`、Fetch-Before-Write、禁詞與簡體中文在三檔都照舊。`budget.py init` 帶 `--effort <檔>`。
+
+| 檔位 | 交付物 | 目標時長 |
+|---|---|---|
+| `full` | 九章完整版（V1 原流程，本檔其餘章節全部適用） | 60–80 分鐘 |
+| `medium`（**預設**） | 重點版，評分照 rubric | 35–40 分鐘 |
+| `low` | 速覽版，不評分 | 10–15 分鐘 |
+
+判斷：指令含「full／完整版／詳盡／深度」→ `full`；含「low／快速／速覽／快查」或指定 15 分鐘內 → `low`；其餘 → `medium`。使用者指定檔位以指定為準。時長依據 2026-10-19 一次 vendor-dd 實測（full 68 分鐘，其中 context 壓縮後重建約 7 分鐘、逐題記帳回合約 11 分鐘、FSCA 名冊白跑 3 分鐘）。
+
+**三檔共用的省時規則**（full 也照做）：
+
+- 頁面正文一律落檔（`reach.py read … --save-dir work/pages`），用腳本抽關鍵句，不把整頁倒進對話；每取得一個事實立刻追加到 `work/facts.md`（`事實｜[N]｜URL｜頁面日期`）。這是防 context 壓縮後重抽事實的唯一做法。
+- 同一名冊最多試 2 次，仍打不開就以 S2 自述落筆（「該牌照僅見公司自述與媒體轉述」），不再換第三種方法。
+- 制裁比對併入第一輪 D2：直接下載 OFAC SDN／Non-SDN 與英國制裁清單 CSV 以法定名 grep，不另開缺口。
+
+**`medium`**（與 `full` 的差異，未列者同 full）：
+
+- 不逐題 `ask`／`answer`（帳本已關題目閘）；必答題只在心中列，用來生成查詢。保留 `entities`、`core`、`spend`、`fill`，每格仍要 ≥2 個來源。
+- 只有一輪缺口補查（`phase round2`，雙通道各一次，缺口 ≤4），只補會改變評分或結論的格；不開深入輪（帳本會拒）。
+- 直接按 `references/report-format-vendor-dd-brief.md` 寫重點版（含評分），不先寫完整版；免 `answer-map`。
+- 第三輪反方稽核照跑，放背景；同時跑 `check_report.sh <報告>`（不帶 `--mode`）與 `validate_report.py --check-urls`。
+- 鐵律 4 的逐項語意核對縮為三類：數字、牌照號／登記號、負面事實。
+- sidecar `-范围与问题.md` 照寫（檢索軌跡供否定句過閘）。
+
+**`low`**：
+
+- 只查 D1 主體、D2 牌照（主要營運主體的名冊＋制裁 CSV）、D6 負面（每格搜 2、抓 2）、D9 產品範圍（目標頁本身）；其餘維度不查，在報告「覆盖范围」列寫明。
+- 無缺口補查（`max_gaps=0`）、無第三輪反方稽核（assurance 降為 `informational`，回報時說明第三輪 verdict＝`NOT_APPLICABLE`）、不評分。
+- 交付物照 `references/report-format-vendor-dd-quick.md`；跑 `check_report.sh <報告>`（不帶 `--mode`）與 `--check-urls`，免 sidecar 以外的稽核檔。
+- 15 分鐘牆鐘到（`HALT`）即停止蒐集，用已有事實成稿。
 
 ## 深度標準（證據下限，與預算上限並用）
 
@@ -202,7 +239,7 @@ allowed-tools:
 - 加碼四前提：格 `CLOSED` 且（close reason 以 `channel:` 開頭**或**該格額度已用盡）、同格未曾 topup、`--reason` 含 `http`、加碼量不超保留池餘額（任一不符回 `EXHAUSTED`，不動 ledger）
 - 第二輪兩通道分帳：`reach.py` 記 `r2_*`、`camofox_fetch.py` 記 `r2c_*`，各恰 +1，互不搶額度
 - **camofox 深入輪（`phase deep`）**：agent-reach 各輪跑完仍有缺口（含第二輪後、初稿或整合後使用者指出的缺口）就開這一輪，不再以「總預算用盡」為由停手。額度**另計**：每缺口格 `fetch_per_gap=4`、`search_per_gap=2`、牆鐘 30 分鐘自起算，不計入 `totals`／總上限／保留池；只准 `camofox_fetch.py`（`--channel camofox`）花費；每份 ledger 只能開一次，round1 階段不得直接進入
-- **證據不足的處置順序（不可跳步）**：重要主張或評分子項證據不足時，依序 ① `budget.py status` 看保留池 `reserve` 餘額 → 有餘額就 `topup` 借額度定向補查（重點維度優先，見 questions-vendor-dd.md「維度權重」）② 保留池用盡仍缺 → 開 `phase deep` 深入輪 ③ 兩者都用盡仍缺，才准寫成中性缺口事實或評分取區間下限。跳過 ①② 直接寫「證據不足」＝違規；報告第二章要能說明哪些格借過額度。
+- **證據不足的處置順序（不可跳步）**：重要主張或評分子項證據不足時，依序 ① `budget.py status` 看保留池 `reserve` 餘額 → 有餘額就 `topup` 借額度定向補查（重點維度優先，見 questions-vendor-dd.md「維度權重」）② 保留池用盡仍缺 → 開 `phase deep` 深入輪 ③ 兩者都用盡仍缺，才准寫成中性缺口事實，評分依 rubric 第四節落在「僅見自述／不明」那一檔。跳過 ①② 直接寫「證據不足」＝違規；報告第二章要能說明哪些格借過額度。
 - 深入輪的**核實閘**：每頁正文自動落檔到 ledger 旁 `.research-deep/`，擋頁判準沿用 `reach.py` 的 `block_reason`；缺口格要 `fill` 前必須先 `budget.py verify <格> <URL> --quote "<原文摘錄>"`，摘錄須逐字（空白與大小寫正規化）出現在未被判擋頁的落檔正文中，否則 `fill` 回 `EXHAUSTED reason=unverified`
 
 以上為 `competitor` 預設。`budget.py init --mode <m>` 依模式套用：`vendor-dd` 每格搜尋 4、抓取 6、缺口 ≤6、牆鐘 150；`academic` 每格搜尋 3、抓取 4、缺口 ≤8、牆鐘 120；單平台且 ≤12 格自動套 `competitor-single`：每格搜尋 3、抓取 5、缺口 ≤6、牆鐘 120（單平台＝要深度，額度高於多平台）。使用者指定數值時以指定為準（用對應旗標覆寫）。
@@ -301,7 +338,7 @@ allowed-tools:
 ### 鐵律 6 — 無公示連結不入正文；時效性主張帶頁面日期
 
 - **每條正文主張都要能指回一個可出示的官方或公示來源連結**。查不到連結的內容一律不進正文，不降級保留、不加限定語留著——包括調用者口述的非公開事實（會議名稱、非公開統計、前次決策經過）與從它們推出的動因段落，這類內容屬對話上下文，不是報告內容。
-- 同一理由下，**「本次未檢索到」也是主張**：`check_report.sh` 的 trail_gate 會擋下沒有「檢索軌跡」章節（或該章節無 URL）的否定句。兩種合規做法——**首選刪除該否定句**、改寫成來源頁確實載明的中性事實；確有必要保留時才補檢索軌跡章節（查詢詞｜走訪連結｜結果）。
+- 同一理由下，**「本次未檢索到」也是主張**：`check_report.sh` 的 trail_gate 會擋下沒有「檢索軌跡」章節（或該章節無 URL）的否定句。兩種合規做法——**首選刪除該否定句**、改寫成來源頁確實載明的中性事實；確有必要保留時才補檢索軌跡章節（查詢詞｜走訪連結｜結果），而且**軌跡寫在同目錄的 `<報告檔名>-范围与问题.md`，不進正式報告**（vendor-dd 的 sidecar 五段見 references/report-format-vendor-dd.md，含 300 字以內重點段）；trail_gate 讀報告與該 sidecar，任一有就放行。
 - **可能已變動的能力／功能類主張，須在正文帶上頁面日期**（不是只在來源清單寫查閱日期）。來源清單的「頁面日期」欄見 references/report-format.md。
 - **實例警訊**：某平台「提供帳號間身份轉移功能」的兩個來源頁日期都是 2023-07-20，報告只寫查閱日期，讀者無法判斷該功能在交付當下是否仍開放；反方稽核據此質疑「現行可用」這一前提。改法＝正文寫「頁面發布日期 YYYY-MM-DD，查閱時仍在線」。
 
@@ -310,9 +347,8 @@ allowed-tools:
 ## 調研產出原則
 
 - **優先使用對比表格**，而非僅文字描述
-- **呈報時措辭溫和**，如「或可考慮優化……」、「建議參考……以提升防禦」
 - **嚴禁臆測**：所有分析必須基於實時核實的法規依據（如 FATF 準則、競品交易所公告），並於該段後附上 `[N]` 引用
-- **語氣軟、立場明**：正文與「建議與啟示」使用「或可考慮」「建議參考」「可留意」等軟性措辭，不用「應該」「必須」「立即」「馬上」等命令語氣。軟性只管語氣：每條建議仍須點明較優做法與理由（見「產出品質」結論須有明確傾向），不以軟性措辭迴避立場
+- **語氣平實、立場明**：正文與「建議與啟示」直接陳述事實與判斷，不用「或可考慮」「或許」等軟化詞，也不用「應該」「必須」「立即」「馬上」等命令語氣。每條建議點明較優做法與理由（見「產出品質」結論須有明確傾向）
 - **語氣**：保持冷靜、專業，嚴謹應對各類風控模型做法差異
 - **署名**：禁止署名，報告正文不得出現任何調用者／組織身分資訊
 

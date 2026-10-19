@@ -30,6 +30,12 @@ PROMPT="$(awk '/^## 派遣 prompt 模板/{f=1;next} f&&/^```$/{if(in_b){exit}els
         -e "s#<\${CLAUDE_SKILL_DIR}/references/round3-devils-advocate.md 的絕對路徑>#$PROTO#" \
         -e "s#<證據包絕對路徑，例如 <報告目錄>/audit/devils-advocate.md>#$OUT#")"
 [ -n "$PROMPT" ] || fallback template_missing
+# vendor-dd 的「本次要回答的問題」不在報告裡，在同目錄的 -范围与问题.md；不帶上去 unanswered 旗標就沒有題目可審
+SCOPE="${REPORT%.md}-范围与问题.md"
+if [ -f "$SCOPE" ]; then
+  PROMPT="$PROMPT
+本次要回答的問題與資料截至日期在 ${SCOPE}，審 unanswered 時以它為題目清單。"
+fi
 
 pack_ok() {
   [ -s "$OUT" ] && grep -q "^# Devil's Advocate Evidence Pack" "$OUT" && grep -q '^## 爭點' "$OUT" \
